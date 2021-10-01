@@ -9,7 +9,7 @@ variable env_prefix {}
 variable my_ip{}
 variable instance_type{}
 variable public_key_location{}
-
+variable private_key_location {}
 # create a new vpc
 resource "aws_vpc" "myapp-vpc" {
     cidr_block = var.cidr_blocks
@@ -124,7 +124,7 @@ resource "aws_instance" "myapp-server"{
     key_name = aws_key_pair.ssh-key.key_name # now you don't have to ssh with a pem file
 
     # run nginx docker container in the ec2-user
-    user_data = file("entry-script.sh")
+    # user_data = file("entry-script.sh")
     # user_data = <<EOF
     #                 #!/bin/bash
     #                 sudo yum update -y && sudo yum install -y docker # -y means yes
@@ -132,9 +132,47 @@ resource "aws_instance" "myapp-server"{
     #                 sudo usermod -aG docker ec2-user # add ec2-user to docker group
     #                 docker run -p 8080:80 nginx
     #             EOF
+    connection {
+        type = "ssh"
+        host = self.public_ip
+        user = "ec2-user"
+        private_key = file(var.private_key_location)
+    }
 
+    provisioner "file" {
+        source = "entry-script.sh"
+        destination = "/home/ec2-user/entry-script.sh"
+    }
+    # provisioner "remote-exec" {
+    #     inline = [
+    #         "export ENV=dev",
+    #         "mkdir newdir",
+    #     ]
+    # }
+
+    # you can send a file to another server as well using following command
+    # provisioner "file" {
+    #     source = "entry-script.sh"
+    #     destination = "/home/ec2-user/entry-script.sh"
+
+    #     connection {
+    #     type = "ssh"
+    #     host = someotherserver.public_ip
+    #     user = "ec2-user"
+    #     private_key = file(var.private_key_location)
+    #     }
+    # }
+
+    provisioner "remote-exec" {
+        script = file("/home/ec2-user/entry-script.sh")
+    }
     tags = {
         Name: "${var.env_prefix}-server"
+    }
+
+    # run command on your local laptop
+    provisioner "local-exec" {
+        command = "echo ${self.public_ip} > ~/Desktop/output.txt"
     }
 }
 
