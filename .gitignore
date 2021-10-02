@@ -9,3 +9,5 @@
 # tf variable files
 *.tfvars
 *.backup
+
+.DS_Store
